@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: maktab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: maktab
+      POSTGRES_PASSWORD: maktab_password
+      POSTGRES_DB: maktab
+    ports:
+      - "5432:5432"
+    volumes:
+      - maktab_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  maktab_postgres_data:

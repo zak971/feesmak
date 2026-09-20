@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  TEACHER
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum FeeStatus {
+  PENDING
+  PARTIAL
+  PAID
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  BANK_TRANSFER
+}
+
+model Maktab {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  classes  Class[]
+  students Student[]
+  payments Payment[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  maktabId     String
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  maktab          Maktab    @relation(fields: [maktabId], references: [id], onDelete: Cascade)
+  taughtClass     Class?
+  createdStudents Student[] @relation("StudentCreatedBy")
+
+  @@index([maktabId, role])
+}
+
+model Class {
+  id         String   @id @default(cuid())
+  maktabId   String
+  name       String
+  monthlyFee Int
+  teacherId  String?  @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  maktab       Maktab            @relation(fields: [maktabId], references: [id], onDelete: Cascade)
+  teacher      User?             @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  students     Student[]
+  feeHistories ClassFeeHistory[]
+
+  @@index([maktabId])
+}
+
+model ClassFeeHistory {
+  id            String    @id @default(cuid())
+  classId       String
+  amount        Int
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdAt     DateTime  @default(now())
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([classId, effectiveFrom])
+}
+
+model Student {
+  id                 String        @id @default(cuid())
+  maktabId           String
+  classId            String
+  name               String
+  phone              String?
+  parentName         String?
+  parentPhone        String?
+  address            String?
+  monthlyFeeOverride Int?
+  status             StudentStatus @default(ACTIVE)
+  createdById        String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  maktab    Maktab @relation(fields: [maktabId], references: [id], onDelete: Cascade)
+  class     Class  @relation(fields: [classId], references: [id], onDelete: Restrict)
+  createdBy User?  @relation("StudentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  fees      Fee[]
+
+  @@index([maktabId, classId])
+  @@index([classId, status])
+}
+
+model Fee {
+  id        String    @id @default(cuid())
+  studentId String
+  classId   String
+  month     DateTime
+  amount    Int
+  status    FeeStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  student     Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  allocations PaymentAllocation[]
+
+  @@unique([studentId, month])
+  @@index([classId, month, status])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  maktabId      String
+  receiptNumber String        @unique
+  amount        Int
+  method        PaymentMethod
+  paidAt        DateTime      @default(now())
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  maktab      Maktab              @relation(fields: [maktabId], references: [id], onDelete: Cascade)
+  allocations PaymentAllocation[]
+  receipt     Receipt?
+
+  @@index([maktabId, paidAt])
+}
+
+model PaymentAllocation {
+  id        String @id @default(cuid())
+  paymentId String
+  feeId     String
+  amount    Int
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  fee     Fee     @relation(fields: [feeId], references: [id], onDelete: Cascade)
+
+  @@unique([paymentId, feeId])
+  @@index([feeId])
+}
+
+model Receipt {
+  id            String   @id @default(cuid())
+  paymentId     String   @unique
+  receiptNumber String   @unique
+  createdAt     DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
