@@ -75,7 +75,7 @@ export default function LoginForm({
             </div>
 
             <div className="maktab-auth-subtitle">
-              Maktab Management
+              Maktab Fees Management
             </div>
           </div>
         </div>
